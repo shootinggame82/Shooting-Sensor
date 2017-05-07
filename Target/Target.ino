@@ -1,18 +1,22 @@
 /*
  * Arduino Wireless target sensor
- * Made by Andreas Olsson
+ * Made by Andreas Olsson v3.12
  * 
  * This is for all targets
- * Each target have there own id code, they are listening for unicq numbers.
+ * Each target have there own code, they are listening for unicq numbers.
  * 
- * ID numbers for targets
+ * The check loop is for the start up of the game, to enable an test communication
+ * with all the targets to verify that they can comunicate.
+ * 
+ * ID numbers for targets, don't use same numbers for all targets.
  * 
  * Recive ID: 16 > Target 1, 26 > Target 2, 36 > Target 3, 46 > Target 4
  * Send ID: 17 > Target 1, 27 > Target 2, 37 > Target 3, 47 > Target 4
  * Test ID: 91 > Target 1, 92 > Target 2, 93 > Target 3, 94 > Target 4
  * OK Test ID: 81 > Target 1, 82 > Target 2, 83 > Target 3, 84 > Target 4
+ * AckPayLoad: 61,62,51 > Target 1, 63,64,52 > Target 2, 65,66,53 > Target 3, 67,68,54 > Target 4
  * 
- * Change the Define text for right target. SENSOR1, SENSOR2, SENSOR3, SENSOR4
+ * Change the Define text to switch target. SENSOR1, SENSOR2, SENSOR3, SENSOR4
  */
 #define SENSOR1
 
@@ -21,8 +25,6 @@
 #include "RF24.h"
 //Knock sensor on pin A0
 const int knockSensor = A0;
-//Set up sensible on knock sensor
-const int threshold= 90;
 int theDelay=1; //Delay for game test
 
 //ID That is given
@@ -66,10 +68,29 @@ int ValSig = 36;
 int ValSig = 46;
 #endif
 
+#ifdef SENSOR1
+int ackData = 61;
+int ackData2 = 62;
+int nockData = 51;
+#endif
+#ifdef SENSOR2
+int ackData = 63;
+int ackData2 = 64;
+int nockData = 52;
+#endif
+#ifdef SENSOR3
+int ackData = 65;
+int ackData2 = 66;
+int nockData = 53;
+#endif
+#ifdef SENSOR4
+int ackData = 67;
+int ackData2 = 68;
+int nockData = 54;
+#endif
+int ackMessg;
 
 RF24 radio(9, 10);
-
-// this is not the channel address, but the transmitter address
 
 #ifdef SENSOR1
 const uint64_t pipes[2] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL };
@@ -110,14 +131,13 @@ doTest();
 radio.begin();
 
 radio.setDataRate(RF24_250KBPS);
-radio.setRetries(15,15);
-radio.setPayloadSize(2);
-radio.setChannel(120);
+radio.setChannel(120); //Sending on channel 120
 
 radio.openWritingPipe(pipes[1]);
-radio.openReadingPipe(1,pipes[0]); // Open one of the 6 pipes for reception
-
-radio.startListening(); // begin to listen
+radio.openReadingPipe(1,pipes[0]);
+radio.enableAckPayload();
+radio.writeAckPayload(1, &ackData, sizeof(ackData));
+radio.startListening();
 Serial.println(senderId);
 
 }
@@ -174,20 +194,26 @@ for (int lop=0; lop<20; lop++)
 
 void startSensor()
 {
+radio.writeAckPayload(1, &ackData, sizeof(ackData));  
 if (radio.available()) {
   Serial.println("Radio Found");
-while (radio.available()) {
 
 digitalWrite(LEDpin1, LOW);
-
-// We recive the signal to enable this target
 radio.read(&senderId, sizeof(senderId));
 Serial.println(senderId);
+Serial.println(ackData);
 delay(40);
+
+Serial.print("Received = ");
+Serial.println(senderId);
+radio.startListening();
+ } else {
+Serial.print("No connection");
+digitalWrite(LEDpin1, HIGH);
+radio.startListening();
 }
 
-
-if (senderId == ValTest) //Test ID
+while (senderId == ValTest) //Test ID
 {
 Serial.print("Test Recived");
 #ifdef SENSOR1  
@@ -210,16 +236,25 @@ transmitterId = 84;
    delay(30);
          if (ok) {
           Serial.print(transmitterId);
+          if ( radio.isAckPayloadAvailable() ) {
+          radio.read(&ackMessg,sizeof(ackMessg));
+          if (ackMessg == ackData2) {  
+          senderId = 0;
           checkok = true; //Enable Check OK Loop
+           
+           }
+          }
+         
          } 
         else {
           Serial.print("Failed Sending");
+          //senderId = 0;
           digitalWrite(LEDpin1, HIGH);
           }
 } //Test Stop
 
 //If the id is for this target
-if (senderId == ValSig)
+while (senderId == ValSig)
 {
 #ifdef SENSOR1
 transmitterId = 17; //This id is for target one
@@ -254,9 +289,14 @@ int val= analogRead(knockSensor);
   bool ok = radio.write(&transmitterId, sizeof(transmitterId));
    delay(20);
          if (ok) {
+          if ( radio.isAckPayloadAvailable() ) {
+          radio.read(&ackMessg,sizeof(ackMessg));
+          if (ackMessg == nockData) {  
+          
           Serial.print(transmitterId);
+          senderId = 0;
           knock = false;
-         } 
+         }}} 
         else {
           Serial.print("Failed Sending");
           digitalWrite(LEDpin1, HIGH);
@@ -265,18 +305,13 @@ int val= analogRead(knockSensor);
  } //While loop stop
 } //Sender ID stop
 
-Serial.print("Received = ");
-Serial.println(senderId);
-radio.startListening();
- } else {
-Serial.print("No connection");
-digitalWrite(LEDpin1, HIGH);
-}
+
 
 
  //Make a new loop for sending the ok test
 if (checkok == true)
 {
+  
   checkok = false;
   doCheck();
   Serial.print("Leave Check OK");
