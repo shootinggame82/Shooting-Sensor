@@ -21,4 +21,6 @@ To use the system as it is you need:
 
 Please read on my blog on what parts you need and other stuff.
 
+See a video on the game: https://youtu.be/3kQHLMIeed4
+
 Keep updated here and report bugs, and modification to the code. It can be updated.
