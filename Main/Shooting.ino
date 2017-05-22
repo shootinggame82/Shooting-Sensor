@@ -324,7 +324,6 @@ int checkloop3 = 0;
 int checkloop4 = 0;
 
 const uint64_t pipes[9] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL, 0xF0F0F0F0C3LL, 0xF0F0F0F0C1LL, 0xF0F0F0F0E3LL, 0xABCDABCD71LL, 0xF0F0F0F096LL, 0x3A3A3A3AD2LL, 0x3A3A3A3AC3LL};
-const uint8_t pipe[][4] = {"1Node","2Node","3Node","4Node"};
 
 void setup() {
         // Firstime we startup we need to setup some settings.
